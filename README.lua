@@ -1,11 +1,13 @@
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/Library.lua"))()
 
--- Налаштував розмір вікна (550 на 350 замість стандарту)
+-- Налаштування позиції та розміру
 local Window = Library:CreateWindow({ 
-    Title = 'YBA Auto-Seller & Buyer', 
-    Center = true, 
+    Title = 'YBA Shop', 
+    Center = false, -- Вимикаємо центр
     AutoShow = true,
-    Size = UDim2.fromOffset(300, 250) -- Робимо вікно компактним
+    -- Позиція: 80% по горизонталі (справа), 40% по вертикалі
+    Position = UDim2.new(0.8, 0, 0.4, 0), 
+    Size = UDim2.fromOffset(200, 160) -- Дуже маленьке вікно
 })
 
 local player = game.Players.LocalPlayer
@@ -29,17 +31,17 @@ local function sellItem(item)
     end
 end
 
--- Логіка продажу (старі + нові предмети)
+-- Логіка продажу
 for _, item in pairs(backpack:GetChildren()) do task.spawn(function() sellItem(item) end) end
 backpack.ChildAdded:Connect(function(item) task.wait(0.5) sellItem(item) end)
 
--- --- КОМПАКТНЕ GUI ---
+-- --- МІНІ-GUI ---
 local Tabs = { Main = Window:AddTab('Головна') }
 local LeftGroupBox = Tabs.Main:AddLeftGroupbox('Магазин (75k)')
 
 _G.AutoBuyLucky = false
 LeftGroupBox:AddToggle('BuyLuckyToggle', {
-    Text = 'Авто-купівля Lucky Arrow',
+    Text = 'Авто-купівля',
     Default = false,
     Callback = function(Value)
         _G.AutoBuyLucky = Value
@@ -54,4 +56,4 @@ LeftGroupBox:AddToggle('BuyLuckyToggle', {
     end
 })
 
-Library:Notify("Скрипт активовано (Компактний режим)")
+Library:Notify("Скрипт з'явився справа!")
