@@ -1,19 +1,19 @@
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/Library.lua"))()
 
--- Налаштування позиції та розміру
+-- Налаштування позиції (вище і справа) та розміру
 local Window = Library:CreateWindow({ 
     Title = 'YBA Shop', 
-    Center = false, -- Вимикаємо центр
+    Center = false, 
     AutoShow = true,
-    -- Позиція: 80% по горизонталі (справа), 40% по вертикалі
-    Position = UDim2.new(0.8, 0, 0.4, 0), 
-    Size = UDim2.fromOffset(200, 160) -- Дуже маленьке вікно
+    -- Position: 0.8 (80% вправо), 0.2 (20% від верху - тепер вище)
+    Position = UDim2.new(0.8, 0, 0.2, 0), 
+    Size = UDim2.fromOffset(200, 160) 
 })
 
 local player = game.Players.LocalPlayer
 local backpack = player:WaitForChild("Backpack")
 
--- --- АВТО-ПРОДАЖ (МИТТЄВО) ---
+-- --- АВТО-ПРОДАЖ (ПРАЦЮЄ ОДРАЗУ) ---
 local function sellItem(item)
     if item:IsA("Tool") and item.Name ~= "Lucky Arrow" then
         task.wait(0.1)
@@ -37,7 +37,7 @@ backpack.ChildAdded:Connect(function(item) task.wait(0.5) sellItem(item) end)
 
 -- --- МІНІ-GUI ---
 local Tabs = { Main = Window:AddTab('Головна') }
-local LeftGroupBox = Tabs.Main:AddLeftGroupbox('Магазин (75k)')
+local LeftGroupBox = Tabs.Main:AddLeftGroupbox('Магізин (75k)')
 
 _G.AutoBuyLucky = false
 LeftGroupBox:AddToggle('BuyLuckyToggle', {
@@ -56,4 +56,4 @@ LeftGroupBox:AddToggle('BuyLuckyToggle', {
     end
 })
 
-Library:Notify("Скрипт з'явився справа!")
+Library:Notify("Вікно піднято вище!")
