@@ -1,8 +1,13 @@
--- Видаляємо старі копії, якщо вони були
+-- Видаляємо стару копію
 local oldGui = game:GetService("CoreGui"):FindFirstChild("YBA_MiniShop")
 if oldGui then oldGui:Destroy() end
 
--- Створюємо просте вікно
+-- Чекаємо на завантаження гравця та персонажа
+local player = game:GetService("Players").LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local backpack = player:WaitForChild("Backpack")
+
+-- Створюємо вікно (Миттєвий Roblox GUI)
 local ScreenGui = Instance.new("ScreenGui")
 local MainFrame = Instance.new("Frame")
 local ToggleBtn = Instance.new("TextButton")
@@ -12,15 +17,14 @@ ScreenGui.Name = "YBA_MiniShop"
 ScreenGui.Parent = game:GetService("CoreGui")
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
--- Позиція: Справа вгорі, маленький розмір
 MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 MainFrame.Position = UDim2.new(0.8, 0, 0.1, 0)
-MainFrame.Size = UDim2.new(0, 150, 0, 80)
-MainFrame.BorderSizePixel = 2
+MainFrame.Size = UDim2.new(0, 140, 0, 70)
+MainFrame.BorderSizePixel = 1
 MainFrame.Active = true
-MainFrame.Draggable = true -- Можна рухати пальцем
+MainFrame.Draggable = true -- Можна рухати на телефоні
 
 Title.Parent = MainFrame
 Title.Size = UDim2.new(1, 0, 0.4, 0)
@@ -37,31 +41,42 @@ ToggleBtn.Text = "Купівля: OFF"
 ToggleBtn.TextColor3 = Color3.new(1, 1, 1)
 ToggleBtn.TextSize = 12
 
--- ЛОГІКА СКРИПТА
-local player = game.Players.LocalPlayer
-local backpack = player:WaitForChild("Backpack")
-_G.AutoBuy = false
-
--- Функція продажу
+-- ЛОГІКА ПРОДАЖУ
 local function sellItem(item)
-    if item:IsA("Tool") and item.Name ~= "Lucky Arrow" then
-        task.wait(0.2)
-        if player.Character and player.Character:FindFirstChild("Humanoid") then
-            player.Character.Humanoid:EquipTool(item)
-        end
-        task.wait(0.2)
-        local args = {[1] = "EndDialogue", [2] = {["Option"] = "Option1", ["Dialogue"] = "Dialogue5", ["NPC"] = "Merchant"}}
-        if player.Character and player.Character:FindFirstChild("RemoteEvent") then
-            player.Character.RemoteEvent:FireServer(unpack(args))
-        end
+    if not item or not item:IsA("Tool") or item.Name == "Lucky Arrow" then return end
+    
+    task.wait(0.5) -- Чекаємо, щоб гра "побачила" предмет
+    
+    local char = player.Character
+    local remote = char and char:FindFirstChild("RemoteEvent")
+    local hum = char and char:FindFirstChild("Humanoid")
+    
+    if remote and hum then
+        hum:EquipTool(item)
+        task.wait(0.3)
+        remote:FireServer("EndDialogue", {
+            ["Option"] = "Option1", 
+            ["Dialogue"] = "Dialogue5", 
+            ["NPC"] = "Merchant"
+        })
     end
 end
 
--- Авто-продаж (миттєво)
-for _, item in pairs(backpack:GetChildren()) do task.spawn(function() sellItem(item) end) end
-backpack.ChildAdded:Connect(function(item) task.wait(0.5) sellItem(item) end)
+-- Основний цикл перевірки (працює завжди)
+task.spawn(function()
+    -- Продаємо все, що вже є в рюкзаку
+    for _, item in pairs(backpack:GetChildren()) do
+        task.spawn(sellItem, item)
+    end
+    
+    -- Слухаємо нові предмети
+    backpack.ChildAdded:Connect(function(item)
+        sellItem(item)
+    end)
+end)
 
--- Перемикач купівлі
+-- ПЕРЕМИКАЧ КУПІВЛІ
+_G.AutoBuy = false
 ToggleBtn.MouseButton1Click:Connect(function()
     _G.AutoBuy = not _G.AutoBuy
     if _G.AutoBuy then
@@ -69,10 +84,12 @@ ToggleBtn.MouseButton1Click:Connect(function()
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
         task.spawn(function()
             while _G.AutoBuy do
-                if player.Character and player.Character:FindFirstChild("RemoteEvent") then
-                    player.Character.RemoteEvent:FireServer("PurchaseShopItem", {["ItemName"] = "1x Lucky Arrow"})
+                local char = player.Character
+                local remote = char and char:FindFirstChild("RemoteEvent")
+                if remote then
+                    remote:FireServer("PurchaseShopItem", {["ItemName"] = "1x Lucky Arrow"})
                 end
-                task.wait(2)
+                task.wait(2.5)
             end
         end)
     else
