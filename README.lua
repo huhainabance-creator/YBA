@@ -6,24 +6,23 @@ local player = game:GetService("Players").LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CoreGui = game:GetService("CoreGui") 
 
--- ========== ЗМІННІ СТАНУ ТА ЗПИСОК ВИКЛЮЧЕНЬ ==========
+-- ========== ЗМІННІ СТАНУ ТА СПИСОК ВИКЛЮЧЕНЬ ==========
 local AutoSell = false
 local AutoBuy = false
 local isSelling = false
 local sellQueue = {}
 
--- Предмети, які НЕ можна продавати
+-- Предмети, які КАТЕГОРИЧНО НЕ МОЖНА продавати
 local DontSell = {
     ["Lucky Arrow"] = true,
-    -- Можна додати інші важливі предмети, наприклад:
-    -- ["Left Arm of the Saint's Corpse"] = true,
+    ["Lucky Stone Mask"] = true,
 }
 
--- ========== ДОПОМІЖНІ ФУНКЦИЇ ПРОДАЖУ ==========
+-- ========== ДОПОМІЖНІ ФУНКЦІЇ ==========
 local function getCharacter()
     local char = player.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
-    return char, nil, hum
+    return char, hum
 end
 
 local function getMerchant()
@@ -31,6 +30,7 @@ local function getMerchant()
     return dialogue and dialogue:FindFirstChild("Merchant")
 end 
 
+-- Автоматичне натискання на кнопки діалогу (UI)
 local function autoClickDialogueButtons()
     local playerGui = player:FindFirstChild("PlayerGui")
     if not playerGui then return end 
@@ -41,18 +41,7 @@ local function autoClickDialogueButtons()
     for _, btn in ipairs(dialogueGui:GetDescendants()) do 
         if (btn:IsA("TextButton") or btn:IsA("ImageButton")) and btn.Visible then 
             local txt = btn.Text or "" 
-            -- 1. "I'd like to sell this..."
-            if txt:find("sell this") or txt:find("I'd like to sell") then 
-                pcall(function() 
-                    if firesignal then firesignal(btn.MouseButton1Click) else btn.Activated:Fire() end 
-                end) 
-            -- 2. "Deal."
-            elseif txt:find("Deal") or txt == "Deal." then 
-                pcall(function() 
-                    if firesignal then firesignal(btn.MouseButton1Click) else btn.Activated:Fire() end 
-                end) 
-            -- 3. "I'll sell ALL of these."
-            elseif txt:find("ALL") or txt:find("sell ALL") or txt:find("All") then 
+            if txt:find("sell") or txt:find("продать") or txt:find("Deal") or txt:find("Сделка") or txt:find("ALL") or txt:find("Всё") or txt:find("Все") then 
                 pcall(function() 
                     if firesignal then firesignal(btn.MouseButton1Click) else btn.Activated:Fire() end 
                 end) 
@@ -61,6 +50,7 @@ local function autoClickDialogueButtons()
     end 
 end 
 
+-- ========== ОСНОВНА ЛОГІКА ПРОДАЖУ ==========
 local function processSellQueue()
     if isSelling then return end 
     isSelling = true 
@@ -71,41 +61,44 @@ local function processSellQueue()
         local item = table.remove(sellQueue, 1) 
         local backpack = player:FindFirstChild("Backpack") 
         
-        if item and backpack and item.Parent == backpack and item:IsA("Tool") and not DontSell[item.Name] then 
-            local char, _, hum = getCharacter() 
-            local remote = char and char:FindFirstChild("RemoteEvent") 
-            local merchant = getMerchant() 
+        if item and item.Parent and (item.Parent == backpack or item.Parent == player.Character) and item:IsA("Tool") then
+            local isRedeemed = item.Name:find("Redeemed") or item:FindFirstChild("Redeemed")
             
-            if remote and hum and merchant then 
-                pcall(function() 
-                    -- 1. Беремо предмет у руки 
-                    hum:EquipTool(item) 
-                    task.wait(0.2) 
-                    
-                    -- 2. Відкриваємо діалог продавця 
-                    remote:FireServer("PromptTriggered", merchant) 
-                    task.wait(0.15) 
-                    autoClickDialogueButtons() 
-                    
-                    -- Крок 1: "I'd like to sell this..." 
-                    remote:FireServer("DialogueType", { Option = "Option1", Dialogue = "Dialogue1", NPC = "Merchant" }) 
-                    autoClickDialogueButtons() 
-                    task.wait(0.15) 
-                    
-                    -- Крок 2: "Deal." 
-                    remote:FireServer("DialogueType", { Option = "Option1", Dialogue = "Dialogue5", NPC = "Merchant" }) 
-                    remote:FireServer("EndDialogue", { Option = "Option1", Dialogue = "Dialogue5", NPC = "Merchant" }) 
-                    autoClickDialogueButtons() 
-                    task.wait(0.15) 
-                    
-                    -- Крок 3: "I'll sell ALL of these." 
-                    remote:FireServer("DialogueType", { Option = "Option1", Dialogue = "Dialogue3", NPC = "Merchant" }) 
-                    remote:FireServer("EndDialogue", { Option = "Option1", Dialogue = "Dialogue3", NPC = "Merchant" }) 
-                    remote:FireServer("DialogueEnd", { Option = "Option1", Dialogue = "Dialogue3", NPC = "Merchant" }) 
-                    autoClickDialogueButtons() 
-                    task.wait(0.2) 
-                end) 
-            end 
+            if not DontSell[item.Name] and not isRedeemed then
+                local char, hum = getCharacter() 
+                local remote = char and char:FindFirstChild("RemoteEvent") 
+                local merchant = getMerchant() 
+                
+                if remote and hum and merchant then 
+                    pcall(function() 
+                        hum:EquipTool(item) 
+                        task.wait(0.3)
+                        
+                        if item.Parent == char then
+                            -- 1. Відкриваємо діалог
+                            remote:FireServer("PromptTriggered", merchant) 
+                            task.wait(0.2)
+                            autoClickDialogueButtons()
+                            
+                            -- 2. "I'd like to sell this..." (Option1)
+                            remote:FireServer("DialogueType", { Option = "Option1", Dialogue = "Dialogue1", NPC = "Merchant" }) 
+                            autoClickDialogueButtons() 
+                            task.wait(0.2) 
+                            
+                            -- 3. "Deal." (Option1 / Dialogue5)
+                            remote:FireServer("DialogueType", { Option = "Option1", Dialogue = "Dialogue5", NPC = "Merchant" }) 
+                            remote:FireServer("EndDialogue", { Option = "Option1", Dialogue = "Dialogue5", NPC = "Merchant" }) 
+                            autoClickDialogueButtons() 
+                            task.wait(0.2) 
+                            
+                            -- 4. Закриваємо діалог
+                            remote:FireServer("DialogueEnd", { Option = "Option1", Dialogue = "Dialogue5", NPC = "Merchant" }) 
+                            autoClickDialogueButtons()
+                            task.wait(0.3)
+                        end
+                    end) 
+                end 
+            end
         end 
     end 
     
@@ -233,7 +226,6 @@ SellBtn.MouseButton1Click:Connect(function()
         SellBtn.Text = "Продаж: ON"
         SellBtn.BackgroundColor3 = Color3.fromRGB(0, 140, 0) 
 
-        -- Додаємо в чергу все, що вже є в рюкзаку
         local bp = player:FindFirstChild("Backpack")
         if bp then
             for _, item in ipairs(bp:GetChildren()) do
@@ -275,4 +267,4 @@ task.spawn(function()
     end
 end) 
 
-print("✅ YBA MiniShop (повна версія) успішно завантажено")
+print("✅ YBA MiniShop оновлено")
