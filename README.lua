@@ -16,6 +16,10 @@ local sellQueue = {}
 local DontSell = {
     ["Lucky Arrow"] = true,
     ["Lucky Stone Mask"] = true,
+    ["Blue Candy"] = true,
+    ["Green Candy"] = true,
+    ["Red Candy"] = true,
+    ["Yellow Candy"] = true,
 }
 
 -- ========== ДОПОМІЖНІ ФУНКЦІЇ ==========
