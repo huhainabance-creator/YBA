@@ -6,6 +6,32 @@ local player = game:GetService("Players").LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CoreGui = game:GetService("CoreGui") 
 
+-- ========== СПІЛЬНИЙ М'ЮТЕКС ДІАЛОГУ ==========
+local function acquireLock(timeout)
+    timeout = timeout or 4
+    local start = tick()
+    while _G.DialogueLock do
+        -- Захист від вічного зависання, якщо інший скрипт раптово зупинився
+        if typeof(_G.DialogueLockTime) == "number" and tick() - _G.DialogueLockTime > 8 then
+            _G.DialogueLock = false
+            break
+        end
+        if tick() - start >= timeout then
+            return false
+        end
+        task.wait(0.1)
+    end
+    _G.DialogueLock = true
+    _G.DialogueLockTime = tick()
+    return true
+end
+
+local function releaseLock()
+    _G.DialogueLock = false
+    _G.DialogueLockTime = nil
+    task.wait(0.2) -- пауза перед передачею замка іншому скрипту
+end
+
 -- ========== ЗМІННІ СТАНУ ТА СПИСОК ВИКЛЮЧЕНЬ ==========
 local AutoSell = false
 local AutoBuy = false
@@ -74,33 +100,42 @@ local function processSellQueue()
                 local merchant = getMerchant() 
                 
                 if remote and hum and merchant then 
-                    pcall(function() 
-                        hum:EquipTool(item) 
-                        task.wait(0.3)
-                        
-                        if item.Parent == char then
-                            -- 1. Відкриваємо діалог
-                            remote:FireServer("PromptTriggered", merchant) 
-                            task.wait(0.2)
-                            autoClickDialogueButtons()
-                            
-                            -- 2. "I'd like to sell this..." (Option1)
-                            remote:FireServer("DialogueType", { Option = "Option1", Dialogue = "Dialogue1", NPC = "Merchant" }) 
-                            autoClickDialogueButtons() 
-                            task.wait(0.2) 
-                            
-                            -- 3. "Deal." (Option1 / Dialogue5)
-                            remote:FireServer("DialogueType", { Option = "Option1", Dialogue = "Dialogue5", NPC = "Merchant" }) 
-                            remote:FireServer("EndDialogue", { Option = "Option1", Dialogue = "Dialogue5", NPC = "Merchant" }) 
-                            autoClickDialogueButtons() 
-                            task.wait(0.2) 
-                            
-                            -- 4. Закриваємо діалог
-                            remote:FireServer("DialogueEnd", { Option = "Option1", Dialogue = "Dialogue5", NPC = "Merchant" }) 
-                            autoClickDialogueButtons()
+                    -- Захоплюємо замок діалогу
+                    if acquireLock(4) then
+                        pcall(function() 
+                            hum:EquipTool(item) 
                             task.wait(0.3)
-                        end
-                    end) 
+                            
+                            if item.Parent == char then
+                                -- 1. Відкриваємо діалог
+                                remote:FireServer("PromptTriggered", merchant) 
+                                task.wait(0.2)
+                                autoClickDialogueButtons()
+                                
+                                -- 2. "I'd like to sell this..." (Option1)
+                                remote:FireServer("DialogueType", { Option = "Option1", Dialogue = "Dialogue1", NPC = "Merchant" }) 
+                                autoClickDialogueButtons() 
+                                task.wait(0.2) 
+                                
+                                -- 3. "Deal." (Option1 / Dialogue5)
+                                remote:FireServer("DialogueType", { Option = "Option1", Dialogue = "Dialogue5", NPC = "Merchant" }) 
+                                remote:FireServer("EndDialogue", { Option = "Option1", Dialogue = "Dialogue5", NPC = "Merchant" }) 
+                                autoClickDialogueButtons() 
+                                task.wait(0.2) 
+                                
+                                -- 4. Закриваємо діалог
+                                remote:FireServer("DialogueEnd", { Option = "Option1", Dialogue = "Dialogue5", NPC = "Merchant" }) 
+                                autoClickDialogueButtons()
+                                task.wait(0.3)
+                            end
+                        end)
+                        -- Звільняємо замок навіть при помилці
+                        releaseLock()
+                    else
+                        -- Якщо замок зайнятий, повертаємо предмет на початок черги
+                        table.insert(sellQueue, 1, item)
+                        task.wait(0.3)
+                    end
                 end 
             end
         end 
